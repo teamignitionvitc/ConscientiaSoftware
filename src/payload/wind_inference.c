@@ -111,20 +111,8 @@
 /**************************************************************************************************
  * Internal Constants
  *
- * Kept here rather than config.h because they are specific to this module's
- * implementation and unlikely to be shared.  Move to config.h if the team
- * prefers full centralisation.
+ * WI_MIN_SPEED_MPS, WI_GYRO_GOOD_DPS, WI_GYRO_FAIR_DPS are in config.h.
  **************************************************************************************************/
-
-/** Minimum GNSS ground speed (m/s) to consider a sample usable.
- *  Below this, receiver noise dominates and course is unreliable. */
-#define WI_MIN_SPEED_MPS        (0.3f)
-
-/** Gyro magnitude threshold for GOOD quality (°/s). */
-#define WI_GYRO_GOOD_DPS        (30.0f)
-
-/** Gyro magnitude threshold for FAIR quality (°/s). */
-#define WI_GYRO_FAIR_DPS        (90.0f)
 
 /** Degrees-to-radians factor. */
 #define WI_DEG2RAD              (0.01745329251994f)   /* π / 180 */
