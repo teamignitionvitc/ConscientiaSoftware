@@ -34,6 +34,7 @@ pico_sdk_init()
 add_executable(conscientia
     src/main.c
     src/drivers/bmp280.c
+    src/drivers/mpu6050.c
 )
 
 target_include_directories(conscientia PRIVATE
