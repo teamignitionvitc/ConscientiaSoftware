@@ -31,3 +31,6 @@ Thumbs.db
 # Logs and generated test/simulation data
 *.log
 sil/results/
+
+# Local development references
+docs/coding_templates/
