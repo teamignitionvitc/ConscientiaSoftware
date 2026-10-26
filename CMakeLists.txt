@@ -33,6 +33,7 @@ pico_sdk_init()
 
 add_executable(conscientia
     src/main.c
+    src/drivers/bmp280.c
 )
 
 target_include_directories(conscientia PRIVATE
@@ -41,6 +42,7 @@ target_include_directories(conscientia PRIVATE
 
 target_link_libraries(conscientia
     pico_stdlib
+    hardware_i2c
 )
 
 pico_enable_stdio_usb(conscientia 1)
