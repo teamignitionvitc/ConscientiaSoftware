@@ -4,15 +4,21 @@ if(WIN32)
 else()
     set(USERHOME $ENV{HOME})
 endif()
+
 set(sdkVersion 2.3.1)
 set(toolchainVersion 15_2_Rel1)
 set(picotoolVersion 2.3.1)
+
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
-if (EXISTS ${picoVscode})
+
+if(EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
+
 # ====================================================================================
-set(PICO_BOARD pico CACHE STRING "Board type")
+
+# Target board: Waveshare RP2040-Zero
+set(PICO_BOARD waveshare_rp2040_zero CACHE STRING "Board type")
 
 cmake_minimum_required(VERSION 3.13)
 
