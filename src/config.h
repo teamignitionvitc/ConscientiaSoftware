@@ -223,4 +223,101 @@
  */
 #define RECOVERY_MAX_RESPONSE_TIME_MS  (3000U)
 
+/**************************************************************************************************
+ * Flight-State Detection Thresholds
+ *
+ * All values are tuned for a ~100 m CanSat deployment height.
+ * \todo  Validate with real flight telemetry and adjust before final launch.
+ **************************************************************************************************/
+
+/**
+ * \brief   Minimum barometric altitude gain (metres) above the launch-pad
+ *          reference to confirm ASCENT.
+ * \details The value must be above BMP280 noise floor (~0.2 m RMS) and
+ *          above any expected pre-launch jostling.  3 m provides comfortable
+ *          margin while still detecting ascent quickly at typical launch-
+ *          vehicle velocities (>5 m/s vertical).
+ */
+#define FS_ASCENT_ALT_THRESHOLD_M      (3.0f)
+
+/**
+ * \brief   Minimum altitude drop (metres) from the recorded apogee to
+ *          confirm the transition from ASCENT → DESCENT.
+ * \details Must be above barometric noise.  2 m is well above the ~0.2 m
+ *          RMS but small enough to trigger quickly after apogee.
+ */
+#define FS_DESCENT_ALT_THRESHOLD_M     (2.0f)
+
+/**
+ * \brief   Minimum computed vertical descent rate (m/s, positive = downward)
+ *          that must be sustained to confirm DESCENT.
+ */
+#define FS_DESCENT_RATE_MIN_MPS        (0.5f)
+
+/**
+ * \brief   Barometric vertical-rate noise band (m/s).
+ * \details If the absolute computed vertical rate stays below this for
+ *          FS_LANDED_HOLD_SAMPLES consecutive baro samples, and the
+ *          altitude is below the apogee minus a margin, LANDED is declared.
+ */
+#define FS_LANDED_VRATE_THRESH_MPS     (0.3f)
+
+/**
+ * \brief   Accelerometer magnitude noise band around 1 g for LANDED
+ *          confirmation (units of g).
+ * \details While landed, |a| ≈ 1 g.  Accept |a − 1| < this threshold.
+ */
+#define FS_LANDED_ACCEL_BAND_G         (0.15f)
+
+/**
+ * \brief   Consecutive baro samples with near-zero vertical rate AND near-
+ *          1 g acceleration required before LANDED is confirmed.
+ * \details At SAMPLE_INTERVAL_BARO_MS = 100 ms and N = 15, this equals
+ *          1.5 s of sustained settled conditions — enough to reject a brief
+ *          mid-air rotation stall without delaying detection after touchdown.
+ */
+#define FS_LANDED_HOLD_SAMPLES         (15U)
+
+/**
+ * \brief   Consecutive baro samples above FS_ASCENT_ALT_THRESHOLD_M required
+ *          before ASCENT is confirmed (noise-rejection counter).
+ */
+#define FS_ASCENT_CONFIRM_SAMPLES      (3U)
+
+/**
+ * \brief   Consecutive baro samples showing descent rate above threshold
+ *          AND altitude below apogee − FS_DESCENT_ALT_THRESHOLD_M required
+ *          before DESCENT is confirmed.
+ */
+#define FS_DESCENT_CONFIRM_SAMPLES     (3U)
+
+/**
+ * \brief   EMA (exponential moving average) smoothing factor for
+ *          barometric altitude.  α = 0.2 gives a ~5-sample time constant.
+ */
+#define FS_ALT_EMA_ALPHA               (0.2f)
+
+/**
+ * \brief   Maximum altitude (metres) for the mission.  Used as a sanity
+ *          ceiling — readings above this are ignored as spurious.
+ * \details Drop height ≈ 100 m; 150 m gives 50 % headroom for barometric
+ *          drift and overshoot.
+ * \todo    Revise if the mission profile changes.
+ */
+#define FS_MAX_ALTITUDE_M              (150.0f)
+
+/**************************************************************************************************
+ * Payload Processing Constants
+ **************************************************************************************************/
+
+/**
+ * \brief   Maximum allowable timestamp difference (ms) between a PM reading
+ *          and a barometric altitude reading for them to be considered a
+ *          valid pair in particulate_analysis.
+ * \details At SAMPLE_INTERVAL_PM_MS = 1000 and SAMPLE_INTERVAL_BARO_MS = 100,
+ *          the worst-case lag is ~1 s.  500 ms keeps pairs temporally tight
+ *          while allowing for normal scheduling jitter.
+ */
+#define PA_TIMESTAMP_STALENESS_MS      (500U)
+
 #endif /* CONFIG_H_ */

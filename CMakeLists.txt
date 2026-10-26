@@ -38,7 +38,18 @@ add_executable(conscientia
     src/drivers/bh1750.c
     src/drivers/pms5003.c
     src/drivers/mq135.c
+    src/drivers/l89ha.c
+    src/drivers/lora_e32.c
+    src/drivers/sd_card.c
+    src/drivers/servo.c
     src/payload/air_quality.c
+    src/payload/particulate_analysis.c
+    src/payload/light_fusion.c
+    src/payload/wind_inference.c
+    src/modules/sensor_manager.c
+    src/modules/data_logger.c
+    src/modules/telemetry.c
+    src/modules/flight_state.c
 )
 
 pico_generate_pio_header(conscientia
@@ -54,6 +65,9 @@ target_link_libraries(conscientia
     hardware_i2c
     hardware_pio
     hardware_adc
+    hardware_uart
+    hardware_spi
+    hardware_pwm
 )
 
 pico_enable_stdio_usb(conscientia 1)
