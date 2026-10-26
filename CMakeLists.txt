@@ -35,6 +35,7 @@ add_executable(conscientia
     src/main.c
     src/drivers/bmp280.c
     src/drivers/mpu6050.c
+    src/drivers/bh1750.c
 )
 
 target_include_directories(conscientia PRIVATE
