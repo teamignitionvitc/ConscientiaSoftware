@@ -320,4 +320,57 @@
  */
 #define PA_TIMESTAMP_STALENESS_MS      (500U)
 
+/**************************************************************************************************
+ * Wind Inference Thresholds
+ **************************************************************************************************/
+
+/** \brief  Minimum GNSS ground speed (m/s) to consider a sample usable.
+ *          Below this, receiver noise dominates and course is unreliable. */
+#define WI_MIN_SPEED_MPS               (0.3f)
+
+/** \brief  Gyro magnitude threshold for GOOD quality (°/s). */
+#define WI_GYRO_GOOD_DPS               (30.0f)
+
+/** \brief  Gyro magnitude threshold for FAIR quality (°/s). */
+#define WI_GYRO_FAIR_DPS               (90.0f)
+
+/**************************************************************************************************
+ * SD Card Logging
+ **************************************************************************************************/
+
+/**
+ * \brief   First sector used by the raw sequential byte-stream log.
+ * \details Sectors 0–2047 are reserved for a potential MBR / FAT boot area.
+ * \todo    Validate against actual card capacity before flight.
+ */
+#define SD_LOG_START_SECTOR            (2048U)
+
+/**************************************************************************************************
+ * Recovery Detection Thresholds (IMU-based drop detection)
+ *
+ * The CanSat is DROPPED from ~100 m.  At the instant of release |a| → 0 g
+ * (free-fall).  Detection uses accelerometer magnitude falling below a
+ * threshold for a short configurable confirmation window.
+ *
+ * \todo  Validate with real drop-test data.
+ **************************************************************************************************/
+
+/**
+ * \brief   Accelerometer magnitude threshold (g) below which the CanSat
+ *          is considered to be in free-fall (released / dropped).
+ * \details During free-fall |a| ≈ 0 g.  0.4 g provides margin for sensor
+ *          noise, slight residual contact forces, and off-axis mounting.
+ */
+#define REC_FREEFALL_ACCEL_G           (0.4f)
+
+/**
+ * \brief   Consecutive IMU samples (at SAMPLE_INTERVAL_IMU_MS) with
+ *          |a| < REC_FREEFALL_ACCEL_G required before drop is confirmed.
+ * \details At 20 ms per sample, 3 consecutive samples = 60 ms confirmation
+ *          window — fast enough to stay well within the 3 s response budget
+ *          while rejecting single-sample vibration dips.
+ */
+#define REC_FREEFALL_CONFIRM_SAMPLES   (3U)
+
 #endif /* CONFIG_H_ */
+
