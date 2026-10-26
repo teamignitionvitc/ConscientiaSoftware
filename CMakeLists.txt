@@ -36,6 +36,13 @@ add_executable(conscientia
     src/drivers/bmp280.c
     src/drivers/mpu6050.c
     src/drivers/bh1750.c
+    src/drivers/pms5003.c
+    src/drivers/mq135.c
+    src/payload/air_quality.c
+)
+
+pico_generate_pio_header(conscientia
+    ${CMAKE_CURRENT_LIST_DIR}/src/drivers/uart_rx.pio
 )
 
 target_include_directories(conscientia PRIVATE
@@ -45,6 +52,8 @@ target_include_directories(conscientia PRIVATE
 target_link_libraries(conscientia
     pico_stdlib
     hardware_i2c
+    hardware_pio
+    hardware_adc
 )
 
 pico_enable_stdio_usb(conscientia 1)

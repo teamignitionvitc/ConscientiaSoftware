@@ -154,6 +154,25 @@
 #define ADC_RESOLUTION_BITS            (12U)
 #define ADC_MAX_COUNT                  (4095U)
 
+/**
+ * \brief   MQ135 load resistor value (hardware-defined, in circuit).
+ * \details Standard 10 kΩ load resistor (RL) used in the MQ135 module.
+ *          Confirm against the actual module schematic before calibration.
+ */
+#define MQ135_RL_OHMS                  (10000U)
+
+/**
+ * \brief   MQ135 provisional clean-air baseline resistance R0 (Ohms).
+ * \details This is a PROVISIONAL placeholder value derived from typical
+ *          MQ135 datasheet characteristics in clean air (Rs/R0 ≈ 3.6,
+ *          RL = 10 kΩ, Vcc = 5 V).  It is NOT laboratory-calibrated.
+ *
+ * \todo    Replace with the R0 measured during a physical clean-air
+ *          calibration session (sensor warm-up ≥ 24 h, known-clean
+ *          environment, stable temperature and humidity).
+ */
+#define MQ135_R0_OHMS_PROVISIONAL      (10000U)
+
 /**************************************************************************************************
  * PWM Configuration — MG90 Servo (Recovery Deployment)
  **************************************************************************************************/

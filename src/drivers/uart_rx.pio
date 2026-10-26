@@ -1,0 +1,55 @@
+; PIO UART RX program — 8N1, LSB-first
+; Used by PMS5003 driver for software UART reception at 9600 baud.
+;
+; Clock divider: sys_clk / (8 * baud)   →  8 PIO cycles per bit.
+; IN pin 0 and JMP pin must both be mapped to the RX GPIO.
+
+.program uart_rx
+
+start:
+    wait 0 pin 0        ; Stall until start bit (falling edge)
+    set x, 7    [10]    ; 8 data bits; delay 12 cycles to mid-first-bit
+bitloop:
+    in pins, 1           ; Sample one data bit into ISR
+    jmp x-- bitloop [6]  ; 8 cycles per bit (1 in + 1 jmp + 6 delay)
+    jmp pin good_stop    ; Stop bit should be high
+    irq 4 rel            ; Framing error — set IRQ flag
+    wait 1 pin 0         ; Wait for line to return idle
+    jmp start
+good_stop:
+    push                 ; Push received byte to RX FIFO
+
+% c-sdk {
+#include "hardware/clocks.h"
+#include "hardware/gpio.h"
+
+static inline void uart_rx_program_init(PIO pio, uint sm, uint offset,
+                                        uint pin, uint baud)
+{
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, false);
+    pio_gpio_init(pio, pin);
+    gpio_pull_up(pin);
+
+    pio_sm_config c = uart_rx_program_get_default_config(offset);
+    sm_config_set_in_pins(&c, pin);
+    sm_config_set_jmp_pin(&c, pin);
+    sm_config_set_in_shift(&c, true, false, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+    float div = (float)clock_get_hz(clk_sys) / (8.0f * (float)baud);
+    sm_config_set_clkdiv(&c, div);
+
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+static inline bool uart_rx_program_available(PIO pio, uint sm)
+{
+    return !pio_sm_is_rx_fifo_empty(pio, sm);
+}
+
+static inline uint8_t uart_rx_program_getc(PIO pio, uint sm)
+{
+    return (uint8_t)(pio_sm_get(pio, sm) >> 24);
+}
+%}
