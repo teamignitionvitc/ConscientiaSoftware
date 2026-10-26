@@ -24,17 +24,7 @@
  * Created On:  26/10/26
  *
  * Brief:
- *   Multi-file FAT32 CSV data logger for CONSCIENTIA.
- *
- * Description:
- *   Uses FatFs to manage 6 CSV files on a FAT32-formatted SD card.
- *   Each file has a fixed header row and per-sample data rows.
- *   Every row contains timestamp_ms and alt_agl_m for post-flight
- *   correlation by GLANCE.
- *
- *   Row formatting uses snprintf into a line buffer then f_write.
- *
- * \todo  Add file-size limit and rollover for very long ground tests.
+ *   1 CSV = 1 graph logger for GLANCE.  16 graph CSVs plus GNSS track data.
  ***************************************************************************************************
  * HISTORY:
  *
@@ -43,12 +33,9 @@
  * No#   |       when       who                  what
  ******+*********+**********+********************+**************************************************
  * 000  NEW      26/10/26   Vidisha Jain         Initial creation
- * 001  MOD      26/10/26   Vidisha Jain         Rewritten for FatFs multi-file CSV
+ * 001  MOD      26/10/26   Vidisha Jain         1 CSV = 1 graph rewrite
  **************************************************************************************************/
 
-/**************************************************************************************************
- * Includes
- **************************************************************************************************/
 #include "data_logger.h"
 #include "config.h"
 #include "ff.h"
@@ -57,337 +44,231 @@
 #include <string.h>
 
 /**************************************************************************************************
- * Internal Constants
+ * Internal
  **************************************************************************************************/
+#define DL_LINE_BUF    (160U)
+#define DL_NFILES      (17U)
 
-#define DL_LINE_BUF_SIZE   (256U)
-#define DL_FILE_COUNT      (6U)
+typedef struct { const char *name; const char *hdr; FIL fil; bool open; } DlFile;
 
-/**************************************************************************************************
- * File Descriptors
- **************************************************************************************************/
-
-typedef struct
-{
-    const char *filename;
-    const char *header;
-    FIL         fil;
-    bool        open;
-} DlFile;
-
-static DlFile sFiles[DL_FILE_COUNT] =
-{
-    /* 0 — mission.csv */
-    {
-        "mission.csv",
-        "timestamp_ms,alt_agl_m,baro_pres_pa,baro_temp_cdegc,"
-        "gnss_lat,gnss_lon,gnss_alt_m,gnss_speed,gnss_course,gnss_sats,"
-        "flight_phase\r\n",
-        {0}, false
-    },
-    /* 1 — imu.csv */
-    {
-        "imu.csv",
-        "timestamp_ms,alt_agl_m,"
-        "ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,imu_temp_c\r\n",
-        {0}, false
-    },
-    /* 2 — particulate.csv */
-    {
-        "particulate.csv",
-        "timestamp_ms,alt_agl_m,"
-        "pm1_0_atm,pm2_5_atm,pm10_atm,paired_valid\r\n",
-        {0}, false
-    },
-    /* 3 — air_quality.csv */
-    {
-        "air_quality.csv",
-        "timestamp_ms,alt_agl_m,"
-        "raw_adc,adc_mv,sensor_mv,rs_ohms,rs_r0,response,valid\r\n",
-        {0}, false
-    },
-    /* 4 — light.csv */
-    {
-        "light.csv",
-        "timestamp_ms,alt_agl_m,"
-        "lux1,lux2,lux3,fused_lux,spread_lux,sensors_used,"
-        "v1,v2,v3,motion\r\n",
-        {0}, false
-    },
-    /* 5 — wind.csv */
-    {
-        "wind.csv",
-        "timestamp_ms,alt_agl_m,"
-        "gnd_speed,gnd_course,gnd_vn,gnd_ve,"
-        "wind_speed,wind_dir,wind_vn,wind_ve,"
-        "quality,gyro_mag,sats\r\n",
-        {0}, false
-    }
+enum {
+    F_ALT_TIME = 0, F_PRESSURE, F_TEMP,
+    F_ACCEL_X, F_ACCEL_Y, F_ACCEL_Z,
+    F_GYRO_X, F_GYRO_Y, F_GYRO_Z,
+    F_PM1, F_PM25, F_PM10,
+    F_AIRQUAL, F_LIGHT, F_WINDSPD, F_WINDDIR, F_GNSS
 };
 
-enum { F_MISSION = 0, F_IMU, F_PARTICULATE, F_AIRQUALITY, F_LIGHT, F_WIND };
+static DlFile sF[DL_NFILES] = {
+    { "altitude_time.csv",  "timestamp_ms,alt_agl_m\r\n", {0},false },
+    { "pressure_alt.csv",   "alt_agl_m,pressure_pa\r\n", {0},false },
+    { "temp_alt.csv",       "alt_agl_m,temp_cdegc\r\n", {0},false },
+    { "accel_x_alt.csv",    "alt_agl_m,accel_x_g\r\n", {0},false },
+    { "accel_y_alt.csv",    "alt_agl_m,accel_y_g\r\n", {0},false },
+    { "accel_z_alt.csv",    "alt_agl_m,accel_z_g\r\n", {0},false },
+    { "gyro_x_alt.csv",     "alt_agl_m,gyro_x_dps\r\n", {0},false },
+    { "gyro_y_alt.csv",     "alt_agl_m,gyro_y_dps\r\n", {0},false },
+    { "gyro_z_alt.csv",     "alt_agl_m,gyro_z_dps\r\n", {0},false },
+    { "pm1_alt.csv",        "alt_agl_m,pm1_0_ugm3\r\n", {0},false },
+    { "pm25_alt.csv",       "alt_agl_m,pm2_5_ugm3\r\n", {0},false },
+    { "pm10_alt.csv",       "alt_agl_m,pm10_ugm3\r\n", {0},false },
+    { "airqual_alt.csv",    "alt_agl_m,aq_response\r\n", {0},false },
+    { "light_alt.csv",      "alt_agl_m,fused_lux\r\n", {0},false },
+    { "windspd_alt.csv",    "alt_agl_m,wind_speed_mps\r\n", {0},false },
+    { "winddir_alt.csv",    "alt_agl_m,wind_dir_deg\r\n", {0},false },
+    { "gnss_track.csv",     "timestamp_ms,lat,lon,alt_m,speed_mps,course_deg,sats\r\n", {0},false }
+};
 
-/**************************************************************************************************
- * Static Variables
- **************************************************************************************************/
-static bool      sInitOk    = false;
-static bool      sFilesOpen = false;
-static FATFS     sFatFs;
-static uint32_t  sLastSyncMs = 0;
-static char      sLineBuf[DL_LINE_BUF_SIZE];
+static bool     sInit   = false;
+static bool     sOpen   = false;
+static FATFS    sFs;
+static uint32_t sSyncMs = 0;
+static char     sLn[DL_LINE_BUF];
 
-/**************************************************************************************************
- * Static Helpers
- **************************************************************************************************/
-
-static DlResult WriteRow(uint8_t idx)
+static DlResult WrRow(uint8_t i)
 {
-    UINT bw;
-    UINT len = (UINT)strlen(sLineBuf);
-    FRESULT fr = f_write(&sFiles[idx].fil, sLineBuf, len, &bw);
-    if (fr != FR_OK || bw != len)
-    {
-        return DL_ERR_FILE;
-    }
-    return DL_OK;
+    UINT bw, len = (UINT)strlen(sLn);
+    FRESULT r = f_write(&sF[i].fil, sLn, len, &bw);
+    return (r == FR_OK && bw == len) ? DL_OK : DL_ERR_FILE;
 }
 
 /**************************************************************************************************
- * Function Definitions
+ * Lifecycle
  **************************************************************************************************/
 
 DlResult DataLogger_Init(void)
 {
-    sInitOk    = false;
-    sFilesOpen = false;
-    sLastSyncMs = 0;
-
-    /* Mount volume 0 (the SD card).  f_mount triggers disk_initialize
-     * internally, which calls SdCard_Init() via our diskio.c adapter. */
-    FRESULT fr = f_mount(&sFatFs, "", 1);  /* 1 = mount now */
-    if (fr != FR_OK)
-    {
-        return DL_ERR_FS;
-    }
-
-    sInitOk = true;
+    sInit = false; sOpen = false; sSyncMs = 0;
+    if (f_mount(&sFs, "", 1) != FR_OK) return DL_ERR_FS;
+    sInit = true;
     return DL_OK;
 }
 
-bool DataLogger_IsInitialised(void)
-{
-    return sInitOk;
-}
+bool DataLogger_IsInitialised(void) { return sInit; }
 
 DlResult DataLogger_Open(void)
 {
-    if (!sInitOk) { return DL_ERR_NOT_INIT; }
-
-    for (uint8_t i = 0; i < DL_FILE_COUNT; i++)
+    if (!sInit) return DL_ERR_NOT_INIT;
+    for (uint8_t i = 0; i < DL_NFILES; i++)
     {
-        /* Open for writing, append if the file already exists */
-        FRESULT fr = f_open(&sFiles[i].fil, sFiles[i].filename,
-                            FA_WRITE | FA_OPEN_ALWAYS);
-        if (fr != FR_OK)
+        FRESULT r = f_open(&sF[i].fil, sF[i].name, FA_WRITE | FA_OPEN_ALWAYS);
+        if (r != FR_OK) return DL_ERR_FILE;
+        if (f_size(&sF[i].fil) == 0)
         {
-            return DL_ERR_FILE;
-        }
-
-        /* If file is new (size == 0), write the CSV header */
-        if (f_size(&sFiles[i].fil) == 0)
-        {
-            UINT bw;
-            UINT hlen = (UINT)strlen(sFiles[i].header);
-            fr = f_write(&sFiles[i].fil, sFiles[i].header, hlen, &bw);
-            if (fr != FR_OK || bw != hlen)
-            {
-                return DL_ERR_FILE;
-            }
+            UINT bw, hl = (UINT)strlen(sF[i].hdr);
+            if (f_write(&sF[i].fil, sF[i].hdr, hl, &bw) != FR_OK) return DL_ERR_FILE;
         }
         else
         {
-            /* Seek to end for appending */
-            f_lseek(&sFiles[i].fil, f_size(&sFiles[i].fil));
+            f_lseek(&sF[i].fil, f_size(&sF[i].fil));
         }
-
-        sFiles[i].open = true;
+        sF[i].open = true;
     }
-
-    sFilesOpen = true;
+    sOpen = true;
     return DL_OK;
 }
 
 DlResult DataLogger_Sync(uint32_t now_ms)
 {
-    if (!sInitOk || !sFilesOpen) { return DL_ERR_NOT_INIT; }
-
-    if ((now_ms - sLastSyncMs) < DATALOG_FLUSH_INTERVAL_MS)
-    {
-        return DL_OK;
-    }
-    sLastSyncMs = now_ms;
-
-    for (uint8_t i = 0; i < DL_FILE_COUNT; i++)
-    {
-        if (sFiles[i].open)
-        {
-            f_sync(&sFiles[i].fil);
-        }
-    }
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    if ((now_ms - sSyncMs) < DATALOG_FLUSH_INTERVAL_MS) return DL_OK;
+    sSyncMs = now_ms;
+    for (uint8_t i = 0; i < DL_NFILES; i++)
+        if (sF[i].open) f_sync(&sF[i].fil);
     return DL_OK;
 }
 
 DlResult DataLogger_Close(void)
 {
-    for (uint8_t i = 0; i < DL_FILE_COUNT; i++)
-    {
-        if (sFiles[i].open)
-        {
-            f_close(&sFiles[i].fil);
-            sFiles[i].open = false;
-        }
-    }
-    sFilesOpen = false;
-
-    f_mount(NULL, "", 0);   /* Unmount */
-    sInitOk = false;
+    for (uint8_t i = 0; i < DL_NFILES; i++)
+        if (sF[i].open) { f_close(&sF[i].fil); sF[i].open = false; }
+    sOpen = false;
+    f_mount(NULL, "", 0);
+    sInit = false;
     return DL_OK;
 }
 
-/* ── Per-dataset CSV row writers ─────────────────────────────────────── */
+/**************************************************************************************************
+ * 1 CSV = 1 graph row writers
+ **************************************************************************************************/
 
-DlResult DataLogger_LogMission(const SmData *sm, float alt_agl, uint8_t phase,
-                               uint32_t ts_ms)
+DlResult DataLogger_LogAltTime(uint32_t ts, float alt)
 {
-    if (!sFilesOpen) { return DL_ERR_NOT_INIT; }
-    if (sm == NULL)  { return DL_ERR_FILE; }
-
-    snprintf(sLineBuf, DL_LINE_BUF_SIZE,
-        "%lu,%.2f,%lu,%ld,"          /* ts, alt, pres, temp */
-        "%.6f,%.6f,%.1f,%.2f,%.1f,%u,"  /* gnss */
-        "%u\r\n",                     /* phase */
-        (unsigned long)ts_ms,
-        (double)alt_agl,
-        (unsigned long)sm->baro.pressure_pa,
-        (long)sm->baro.temperature_cdegc,
-        sm->gnss.latitude_deg,
-        sm->gnss.longitude_deg,
-        (double)sm->gnss.altitude_m,
-        (double)sm->gnss.speed_mps,
-        (double)sm->gnss.course_deg,
-        (unsigned)sm->gnss.satellites,
-        (unsigned)phase);
-
-    return WriteRow(F_MISSION);
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%lu,%.2f\r\n", (unsigned long)ts, (double)alt);
+    return WrRow(F_ALT_TIME);
 }
 
-DlResult DataLogger_LogImu(const SmData *sm, float alt_agl, uint32_t ts_ms)
+DlResult DataLogger_LogPressure(float alt, uint32_t pa)
 {
-    if (!sFilesOpen) { return DL_ERR_NOT_INIT; }
-    if (sm == NULL)  { return DL_ERR_FILE; }
-
-    snprintf(sLineBuf, DL_LINE_BUF_SIZE,
-        "%lu,%.2f,"
-        "%.4f,%.4f,%.4f,%.2f,%.2f,%.2f,%.1f\r\n",
-        (unsigned long)ts_ms,
-        (double)alt_agl,
-        (double)sm->imu.accel_x_g,
-        (double)sm->imu.accel_y_g,
-        (double)sm->imu.accel_z_g,
-        (double)sm->imu.gyro_x_dps,
-        (double)sm->imu.gyro_y_dps,
-        (double)sm->imu.gyro_z_dps,
-        (double)sm->imu.temperature_c);
-
-    return WriteRow(F_IMU);
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%lu\r\n", (double)alt, (unsigned long)pa);
+    return WrRow(F_PRESSURE);
 }
 
-DlResult DataLogger_LogParticulate(const PaData *pa)
+DlResult DataLogger_LogTemp(float alt, int32_t tc)
 {
-    if (!sFilesOpen) { return DL_ERR_NOT_INIT; }
-    if (pa == NULL)  { return DL_ERR_FILE; }
-
-    snprintf(sLineBuf, DL_LINE_BUF_SIZE,
-        "%lu,%.2f,%u,%u,%u,%u\r\n",
-        (unsigned long)pa->pm_timestamp_ms,
-        (double)pa->altitude_m,
-        (unsigned)pa->pm1_0_atm,
-        (unsigned)pa->pm2_5_atm,
-        (unsigned)pa->pm10_atm,
-        (unsigned)pa->paired_valid);
-
-    return WriteRow(F_PARTICULATE);
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%ld\r\n", (double)alt, (long)tc);
+    return WrRow(F_TEMP);
 }
 
-DlResult DataLogger_LogAirQuality(const AqData *aq, float alt_agl,
-                                  uint32_t ts_ms)
+DlResult DataLogger_LogAccelX(float alt, float v)
 {
-    if (!sFilesOpen) { return DL_ERR_NOT_INIT; }
-    if (aq == NULL)  { return DL_ERR_FILE; }
-
-    snprintf(sLineBuf, DL_LINE_BUF_SIZE,
-        "%lu,%.2f,%u,%.1f,%.1f,%.1f,%.4f,%.2f,%u\r\n",
-        (unsigned long)ts_ms,
-        (double)alt_agl,
-        (unsigned)aq->raw_adc,
-        (double)aq->adc_voltage_mv,
-        (double)aq->sensor_voltage_mv,
-        (double)aq->rs_ohms,
-        (double)aq->rs_over_r0,
-        (double)aq->air_quality_response,
-        (unsigned)aq->valid);
-
-    return WriteRow(F_AIRQUALITY);
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%.4f\r\n", (double)alt, (double)v);
+    return WrRow(F_ACCEL_X);
 }
 
-DlResult DataLogger_LogLight(const LfData *lf)
+DlResult DataLogger_LogAccelY(float alt, float v)
 {
-    if (!sFilesOpen) { return DL_ERR_NOT_INIT; }
-    if (lf == NULL)  { return DL_ERR_FILE; }
-
-    snprintf(sLineBuf, DL_LINE_BUF_SIZE,
-        "%lu,%.2f,"
-        "%.1f,%.1f,%.1f,%.1f,%.1f,%u,"
-        "%u,%u,%u,%u\r\n",
-        (unsigned long)lf->light_timestamp_ms,
-        (double)lf->altitude_m,
-        (double)lf->lux1,
-        (double)lf->lux2,
-        (double)lf->lux3,
-        (double)lf->fused_lux,
-        (double)lf->spread_lux,
-        (unsigned)lf->sensors_used,
-        (unsigned)lf->valid1,
-        (unsigned)lf->valid2,
-        (unsigned)lf->valid3,
-        (unsigned)lf->motion);
-
-    return WriteRow(F_LIGHT);
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%.4f\r\n", (double)alt, (double)v);
+    return WrRow(F_ACCEL_Y);
 }
 
-DlResult DataLogger_LogWind(const WiData *wi)
+DlResult DataLogger_LogAccelZ(float alt, float v)
 {
-    if (!sFilesOpen) { return DL_ERR_NOT_INIT; }
-    if (wi == NULL)  { return DL_ERR_FILE; }
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%.4f\r\n", (double)alt, (double)v);
+    return WrRow(F_ACCEL_Z);
+}
 
-    snprintf(sLineBuf, DL_LINE_BUF_SIZE,
-        "%lu,%.2f,"
-        "%.2f,%.1f,%.3f,%.3f,"
-        "%.2f,%.1f,%.3f,%.3f,"
-        "%u,%.1f,%u\r\n",
-        (unsigned long)wi->timestamp_ms,
-        (double)wi->altitude_agl_m,
-        (double)wi->gnd_speed_mps,
-        (double)wi->gnd_course_deg,
-        (double)wi->gnd_vn_mps,
-        (double)wi->gnd_ve_mps,
-        (double)wi->wind_speed_mps,
-        (double)wi->wind_dir_deg,
-        (double)wi->wind_vn_mps,
-        (double)wi->wind_ve_mps,
-        (unsigned)wi->quality,
-        (double)wi->gyro_mag_dps,
-        (unsigned)wi->satellites);
+DlResult DataLogger_LogGyroX(float alt, float v)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%.2f\r\n", (double)alt, (double)v);
+    return WrRow(F_GYRO_X);
+}
 
-    return WriteRow(F_WIND);
+DlResult DataLogger_LogGyroY(float alt, float v)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%.2f\r\n", (double)alt, (double)v);
+    return WrRow(F_GYRO_Y);
+}
+
+DlResult DataLogger_LogGyroZ(float alt, float v)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%.2f\r\n", (double)alt, (double)v);
+    return WrRow(F_GYRO_Z);
+}
+
+DlResult DataLogger_LogPM1(float alt, uint16_t v)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%u\r\n", (double)alt, (unsigned)v);
+    return WrRow(F_PM1);
+}
+
+DlResult DataLogger_LogPM25(float alt, uint16_t v)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%u\r\n", (double)alt, (unsigned)v);
+    return WrRow(F_PM25);
+}
+
+DlResult DataLogger_LogPM10(float alt, uint16_t v)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%u\r\n", (double)alt, (unsigned)v);
+    return WrRow(F_PM10);
+}
+
+DlResult DataLogger_LogAirQual(float alt, float resp)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%.2f\r\n", (double)alt, (double)resp);
+    return WrRow(F_AIRQUAL);
+}
+
+DlResult DataLogger_LogLight(float alt, float lux)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%.1f\r\n", (double)alt, (double)lux);
+    return WrRow(F_LIGHT);
+}
+
+DlResult DataLogger_LogWindSpd(float alt, float spd)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%.2f\r\n", (double)alt, (double)spd);
+    return WrRow(F_WINDSPD);
+}
+
+DlResult DataLogger_LogWindDir(float alt, float dir)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%.2f,%.1f\r\n", (double)alt, (double)dir);
+    return WrRow(F_WINDDIR);
+}
+
+DlResult DataLogger_LogGnss(uint32_t ts, double lat, double lon,
+                            float alt, float spd, float crs, uint8_t sat)
+{
+    if (!sOpen) return DL_ERR_NOT_INIT;
+    snprintf(sLn, DL_LINE_BUF, "%lu,%.6f,%.6f,%.1f,%.2f,%.1f,%u\r\n",
+             (unsigned long)ts, lat, lon, (double)alt, (double)spd, (double)crs, (unsigned)sat);
+    return WrRow(F_GNSS);
 }
