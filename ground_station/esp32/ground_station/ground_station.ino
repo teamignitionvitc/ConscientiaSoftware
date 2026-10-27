@@ -126,13 +126,20 @@ void loop()
                 sPacket[sPacketIndex] = '\0';
 
                 if (ValidatePacket(sPacket))
-                {
-                    /*
-                     * Forward ONLY the original valid telemetry packet.
-                     * GLANCE therefore receives exactly one packet per line.
-                     */
-                    Serial.println(sPacket);
-                }
+{
+    /*
+     * Packet has already passed framing and checksum validation.
+     * Forward only the numeric CSV payload to GLANCE.
+     */
+    char *payload = sPacket + 7;   /* Skip "$$IGNI," */
+    char *asterisk = strrchr(payload, '*');
+
+    if (asterisk != NULL)
+    {
+        *asterisk = '\0';
+        Serial.println(payload);
+    }
+}
 
                 sPacketIndex = 0U;
             }
