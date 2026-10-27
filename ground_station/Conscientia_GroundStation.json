@@ -284,7 +284,7 @@
     ],
     "layout": {
         "Main View": {
-            "state": "AAAA/wAAAAD9AAAAAQAAAAAAAASwAAACKvwCAAAAAfwAAAAAAAACKgAAAigA/////AEAAAAC/AAAAAAAAAMXAAAChAD////8AgAAAAL7AAAAUgBkAG8AYwBrAF8AMAA5ADUANwA2ADMAMAA5AC0AMQAyADQAMAAtADQANwA5ADQALQBiAGYAYwAxAC0AOQBiAGMAMwA0ADgANgA1AGUAYQA5ADgBAAAAAAAAAOIAAADgAP////wAAADmAAABRAAAAUQA/////AEAAAAC+wAAAFIAZABvAGMAawBfADEAZAA0ADgAOAA0AGYAOQAtADkAYgBmADcALQA0ADEAYwBjAC0AOQAwAGIAOQAtADAAMwAzADAAMQA1AGQAMwAyADkANQBkAQAAAAAAAAIjAAABkAD////7AAAAUgBkAG8AYwBrAF8AZABlADkAMwAzAGQANQBkAC0AOAA3AGIAMwAtADQANQBlAGYALQA4ADcAMQBhAC0AZgAwADMAYwA5AGYAYwBlAGYAYQBhADkBAAACJwAAAPAAAADwAP////sAAABSAGQAbwBjAGsAXwBkADYAZgA3ADQAMQA1ADQALQA2ADcAYQA2AC0ANABiADAAZQAtADgAOAA1ADUALQA5AGUANAA2AGIAYgA2ADYANQAyAGUANwEAAAMbAAABlQAAASwA////AAAAAAAAAioAAAAEAAAABAAAAAgAAAAI/AAAAAA=",
+            "state": "AAAA/wAAAAD9AAAAAQAAAAAAAASvAAACIvwCAAAAAfwAAAAAAAACIgAAAcQA/////AEAAAAD/AAAAAAAAAHrAAACSgD////8AgAAAAL7AAAAUgBkAG8AYwBrAF8AMAA5ADUANwA2ADMAMAA5AC0AMQAyADQAMAAtADQANwA5ADQALQBiAGYAYwAxAC0AOQBiAGMAMwA0ADgANgA1AGUAYQA5ADgBAAAAAAAAAT4AAADgAP////wAAAFCAAAA4AAAAOAA/////AEAAAAC+wAAAFIAZABvAGMAawBfAGQAZQA5ADMAMwBkADUAZAAtADgANwBiADMALQA0ADUAZQBmAC0AOAA3ADEAYQAtAGYAMAAzAGMAOQBmAGMAZQBmAGEAYQA5AQAAAAAAAAEsAAABLAD////7AAAAUgBkAG8AYwBrAF8ANAAzADIANgA5AGIANwBlAC0AZQBhADkANwAtADQAOAA5AGEALQBhADgAOQBmAC0AMQAzADUAOABiAGUAOAAxADcAMwAxADQBAAABMAAAALsAAAAQAP////sAAABSAGQAbwBjAGsAXwBkADYAZgA3ADQAMQA1ADQALQA2ADcAYQA2AC0ANABiADAAZQAtADgAOAA1ADUALQA5AGUANAA2AGIAYgA2ADYANQAyAGUANwEAAAHvAAABLAAAASwA////+wAAAFIAZABvAGMAawBfADEAZAA0ADgAOAA0AGYAOQAtADkAYgBmADcALQA0ADEAYwBjAC0AOQAwAGIAOQAtADAAMwAzADAAMQA1AGQAMwAyADkANQBkAQAAAx8AAAGQAAABkAD///8AAAAAAAACIgAAAAQAAAAEAAAACAAAAAj8AAAAAA==",
             "configs": {
                 "09576309-1240-4794-bfc1-9bc34865ea98": {
                     "param_ids": [
@@ -343,6 +343,17 @@
                     "options": {
                         "priority": "Normal"
                     }
+                },
+                "43269b7e-ea97-489a-a89f-1358be817314": {
+                    "param_ids": [
+                        "latitude",
+                        "longitude"
+                    ],
+                    "displayType": "Map (GPS)",
+                    "priority": "Normal",
+                    "options": {
+                        "zoom": 10
+                    }
                 }
             },
             "explicit_layout": {
@@ -353,38 +364,48 @@
                         "geometry": {
                             "x": 0,
                             "y": 0,
-                            "width": 791,
-                            "height": 226
+                            "width": 586,
+                            "height": 318
                         }
                     },
                     "d6f74154-67a6-4b0e-8855-9e46bb6652e7": {
                         "floating": false,
                         "visible": true,
                         "geometry": {
-                            "x": 795,
+                            "x": 495,
                             "y": 0,
-                            "width": 405,
-                            "height": 554
+                            "width": 300,
+                            "height": 546
                         }
                     },
                     "1d4884f9-9bf7-41cc-90b9-033015d3295d": {
                         "floating": false,
                         "visible": true,
                         "geometry": {
-                            "x": 0,
-                            "y": 230,
-                            "width": 547,
-                            "height": 324
+                            "x": 799,
+                            "y": 0,
+                            "width": 400,
+                            "height": 546
                         }
                     },
                     "de933d5d-87b3-45ef-871a-f03c9fcefaa9": {
                         "floating": false,
                         "visible": true,
                         "geometry": {
-                            "x": 551,
-                            "y": 230,
-                            "width": 240,
-                            "height": 324
+                            "x": 0,
+                            "y": 322,
+                            "width": 300,
+                            "height": 224
+                        }
+                    },
+                    "43269b7e-ea97-489a-a89f-1358be817314": {
+                        "floating": false,
+                        "visible": true,
+                        "geometry": {
+                            "x": 304,
+                            "y": 322,
+                            "width": 187,
+                            "height": 224
                         }
                     }
                 },
@@ -398,10 +419,14 @@
                         1
                     ],
                     "1d4884f9-9bf7-41cc-90b9-033015d3295d": [
+                        0,
+                        2
+                    ],
+                    "de933d5d-87b3-45ef-871a-f03c9fcefaa9": [
                         1,
                         0
                     ],
-                    "de933d5d-87b3-45ef-871a-f03c9fcefaa9": [
+                    "43269b7e-ea97-489a-a89f-1358be817314": [
                         1,
                         1
                     ]
@@ -525,5 +550,5 @@
     "dashboard_title_alignment": "1",
     "filters": {},
     "version": "1.0",
-    "created": "2026-10-27T13:59:21.232415"
+    "created": "2026-10-27T15:10:56.983344"
 }
