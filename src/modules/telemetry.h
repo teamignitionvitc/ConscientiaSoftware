@@ -42,6 +42,7 @@
  * No#   |       when       who                  what
  ******+*********+**********+********************+**************************************************
  * 000  NEW      26/10/26   Vidisha Jain         Initial creation
+ * 001  MOD      27/10/26   Vidisha Jain         Added supplemental telemetry values
  **************************************************************************************************/
 
 #ifndef TELEMETRY_H_
@@ -60,7 +61,7 @@
  **************************************************************************************************/
 
 /** \brief  Maximum length of one formatted telemetry packet (bytes). */
-#define TELEMETRY_PKT_MAX_LEN       (128U)
+#define TELEMETRY_PKT_MAX_LEN       (192U)
 
 /** \brief  Synchronisation preamble prepended to every packet. */
 #define TELEMETRY_SYNC              "$$IGNI,"
@@ -79,6 +80,20 @@ typedef enum
 	TM_ERR_LORA,            /**< LoRa driver not ready / send failed.         */
 	TM_ERR_FORMAT           /**< Packet formatting error (buffer overflow).   */
 } TmResult;
+/**
+ * \brief   Supplemental processed/system values included in live telemetry.
+ */
+typedef struct
+{
+    float   fused_lux;
+    float   air_quality_response;
+
+    uint8_t flight_state;
+    bool    recovery_deployed;
+
+    bool    fused_lux_valid;
+    bool    air_quality_valid;
+} TmSupplemental;
 
 /**************************************************************************************************
  * Public Function Prototypes
@@ -108,8 +123,9 @@ bool Telemetry_IsInitialised(void);
  *
  * \return  TM_OK / TM_ERR_NOT_INIT / TM_ERR_LORA / TM_ERR_FORMAT.
  */
-TmResult Telemetry_Update(const SmData *data, uint32_t now_ms);
-
+TmResult Telemetry_Update(const SmData *data,
+                          const TmSupplemental *supp,
+                          uint32_t now_ms);
 /**
  * \brief   Formats a telemetry packet from sensor data without transmitting.
  * \details Useful for testing / ground-station format validation.
@@ -122,7 +138,7 @@ TmResult Telemetry_Update(const SmData *data, uint32_t now_ms);
  * \return  TM_OK / TM_ERR_FORMAT.
  */
 TmResult Telemetry_FormatPacket(const SmData *data,
+                                const TmSupplemental *supp,
                                 char *buf, uint8_t buf_len,
                                 uint8_t *pkt_len);
-
 #endif /* TELEMETRY_H_ */

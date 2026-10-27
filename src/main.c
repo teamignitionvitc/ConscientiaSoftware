@@ -63,6 +63,7 @@
  ******+*********+**********+********************+**************************************************
  * 000  NEW      26/10/26   Vidisha Jain         Initial creation
  * 001  MOD      26/10/26   Vidisha Jain         Full avionics integration
+ * 002  MOD      27/10/26   Vidisha Jain         Added supplemental telemetry values
  **************************************************************************************************/
 
 /**************************************************************************************************
@@ -361,9 +362,30 @@ int main(void)
         /* ════════════════════════════════════════════════════════════
          * 6. TELEMETRY — LoRa downlink (internally rate-limited)
          * ════════════════════════════════════════════════════════════ */
-        if (gTelemetryOk)
+        TmSupplemental tmSupp;
+memset(&tmSupp, 0, sizeof(tmSupp));
+
+tmSupp.flight_state = (uint8_t)phase;
+
+if (gRecoveryOk)
+{
+    tmSupp.recovery_deployed = Recovery_IsDeployed();
+}
+
+if (lfFresh)
+{
+    tmSupp.fused_lux       = lf.fused_lux;
+    tmSupp.fused_lux_valid = true;
+}
+
+if (aqFresh)
+{
+    tmSupp.air_quality_response = aq.air_quality_response;
+    tmSupp.air_quality_valid    = true;
+}
+         if (gTelemetryOk)
         {
-            Telemetry_Update(&sm, now);
+            Telemetry_Update(&sm, &tmSupp, now);
         }
 
         /* ════════════════════════════════════════════════════════════

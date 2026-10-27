@@ -51,6 +51,7 @@
  * No#   |       when       who                  what
  ******+*********+**********+********************+**************************************************
  * 000  NEW      26/10/26   Vidisha Jain         Initial creation
+ * 002  MOD      27/10/26   Vidisha Jain         Added supplemental telemetry values
  **************************************************************************************************/
 
 /**************************************************************************************************
@@ -102,8 +103,9 @@ bool Telemetry_IsInitialised(void)
     return sInitOk;
 }
 
-TmResult Telemetry_Update(const SmData *data, uint32_t now_ms)
-{
+TmResult Telemetry_Update(const SmData *data,
+                          const TmSupplemental *supp,
+                          uint32_t now_ms){
     uint8_t  pkt_len;
     TmResult res;
 
@@ -121,7 +123,8 @@ TmResult Telemetry_Update(const SmData *data, uint32_t now_ms)
         return TM_OK;
     }
 
-    res = Telemetry_FormatPacket(data, sPktBuf, sizeof(sPktBuf), &pkt_len);
+    res = Telemetry_FormatPacket(data, supp,
+                             sPktBuf, sizeof(sPktBuf), &pkt_len);
     if (res != TM_OK)
     {
         return res;
@@ -139,13 +142,14 @@ TmResult Telemetry_Update(const SmData *data, uint32_t now_ms)
 }
 
 TmResult Telemetry_FormatPacket(const SmData *data,
+                                const TmSupplemental *supp,
                                 char *buf, uint8_t buf_len,
                                 uint8_t *pkt_len)
 {
-    if (buf == NULL || pkt_len == NULL || data == NULL)
-    {
-        return TM_ERR_FORMAT;
-    }
+    if (buf == NULL || pkt_len == NULL || data == NULL || supp == NULL)
+{
+    return TM_ERR_FORMAT;
+}
 
     /* Build validity mask (same bit mapping as data_logger) */
     uint8_t vmask = 0;
@@ -164,33 +168,62 @@ TmResult Telemetry_FormatPacket(const SmData *data,
      */
     char body[TELEMETRY_PKT_MAX_LEN];
     int body_len = snprintf(body, sizeof(body),
-        "%s%lu,%lu,%ld,%lu,%.1f,"
-        "%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,"
-        "%.1f,%.1f,%.1f,"
-        "%u,%u,%u,"
-        "%.6f,%.6f,%.1f,%.2f,%u,"
-        "%u",
-        TELEMETRY_SYNC,
-        (unsigned long)sSeqNum,
-        (unsigned long)data->imu_timestamp_ms,
-        /* baro */
-        (long)data->baro.temperature_cdegc,
-        (unsigned long)data->baro.pressure_pa,
-        data->baro_altitude_m,
-        /* imu */
-        data->imu.accel_x_g, data->imu.accel_y_g, data->imu.accel_z_g,
-        data->imu.gyro_x_dps, data->imu.gyro_y_dps, data->imu.gyro_z_dps,
-        /* light */
-        data->light1_lux, data->light2_lux, data->light3_lux,
-        /* pm + mq135 */
-        data->pm.pm2_5_atm, data->pm.pm10_atm, data->aq.raw_adc,
-        /* gnss */
-        data->gnss.latitude_deg, data->gnss.longitude_deg,
-        data->gnss.altitude_m, data->gnss.speed_mps,
-        (unsigned)data->gnss.satellites,
-        /* validity */
-        (unsigned)vmask
-    );
+    "%s%lu,%lu,%.2f,%lu,%.1f,"
+    "%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,"
+    "%.1f,%.1f,%.1f,%.1f,"
+    "%u,%u,%u,"
+    "%u,%.1f,"
+    "%.6f,%.6f,%.1f,%.2f,%u,"
+    "%u,%u,"
+    "%u",
+    TELEMETRY_SYNC,
+
+    /* 0-1: packet metadata */
+    (unsigned long)sSeqNum,
+    (unsigned long)data->imu_timestamp_ms,
+
+    /* 2-4: barometer */
+    ((float)data->baro.temperature_cdegc / 100.0f),
+    (unsigned long)data->baro.pressure_pa,
+    data->baro_altitude_m,
+
+    /* 5-10: IMU */
+    data->imu.accel_x_g,
+    data->imu.accel_y_g,
+    data->imu.accel_z_g,
+    data->imu.gyro_x_dps,
+    data->imu.gyro_y_dps,
+    data->imu.gyro_z_dps,
+
+    /* 11-14: optical */
+    data->light1_lux,
+    data->light2_lux,
+    data->light3_lux,
+    supp->fused_lux,
+
+    /* 15-17: particulate matter */
+    data->pm.pm1_0_atm,
+    data->pm.pm2_5_atm,
+    data->pm.pm10_atm,
+
+    /* 18-19: air quality */
+    data->aq.raw_adc,
+    supp->air_quality_response,
+
+    /* 20-24: GNSS */
+    data->gnss.latitude_deg,
+    data->gnss.longitude_deg,
+    data->gnss.altitude_m,
+    data->gnss.speed_mps,
+    (unsigned)data->gnss.satellites,
+
+    /* 25-26: mission state */
+    (unsigned)supp->flight_state,
+    (unsigned)(supp->recovery_deployed ? 1U : 0U),
+
+    /* 27: sensor validity */
+    (unsigned)vmask
+);
 
     if (body_len <= 0 || body_len >= (int)sizeof(body))
     {
