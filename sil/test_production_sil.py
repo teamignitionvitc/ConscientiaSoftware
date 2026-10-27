@@ -1,4 +1,4 @@
-/*
+'''
                                         ::
                                         ::
                                         ::
@@ -16,7 +16,7 @@
                         .:::::::::::::::::::::::::::::::::.
 
                     © Copyright of Ignition Software Department
-*/
+'''
 # File:        test_production_sil.py
 # Author:      Vidisha Jain
 # Created On:  27/10/26
