@@ -360,9 +360,6 @@ Configured application sampling rates:
 ```text
 ConscientiaSoftware/
 │
-├── docs/
-│   └── coding_templates/
-│
 ├── ground_station/
 │   ├── esp32/
 │   │   └── ground_station/
