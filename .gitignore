@@ -35,3 +35,11 @@ sil/results/
 # Local development references
 docs/coding_templates/
 docs/hardware_connections.md
+
+# SIL generated binaries
+sil/host/*.exe
+sil/host/*.dll
+sil/host/*.o
+
+# SIL generated flight data
+sil/data/*.csv

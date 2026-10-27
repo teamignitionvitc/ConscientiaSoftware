@@ -38,10 +38,12 @@
  *
  *   Timing budget:
  *     - IMU is sampled at SAMPLE_INTERVAL_IMU_MS = 20 ms.
- *     - 3 consecutive samples = 60 ms confirmation window.
+ *     - At 20 ms sampling, the third consecutive sample arrives
+ *       40 ms after the first qualifying sample.
  *     - Servo command is issued on the SAME tick as the third
  *       qualifying sample.
- *     - Total response: ≤60 ms << 3000 ms budget.
+ *     - Confirmation delay: ~40 ms; worst-case release-to-confirmation
+ *       is ~60 ms depending on sampling alignment, well below 3000 ms.
  *
  *   Why NO altitude / descent gate:
  *     The CanSat is physically dropped from ~100 m.  There is no
