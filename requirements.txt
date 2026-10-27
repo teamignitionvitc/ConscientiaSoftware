@@ -1,0 +1,9 @@
+# Python dependencies for Conscientia development,
+# hardware testing, and post-flight analysis
+# Install: pip install -r requirements.txt
+
+# Serial communication and ground-station hardware testing
+pyserial>=3.5
+
+# Post-flight data plotting and visualization
+matplotlib>=3.7.0
