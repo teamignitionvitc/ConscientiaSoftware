@@ -42,4 +42,4 @@ sil/host/*.dll
 sil/host/*.o
 
 # SIL generated flight data
-sil/data/*.csv
+sil/data/
