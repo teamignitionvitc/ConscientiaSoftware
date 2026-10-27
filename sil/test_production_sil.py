@@ -1,4 +1,4 @@
-"""
+/*
                                         ::
                                         ::
                                         ::
@@ -15,8 +15,20 @@
                        ::::::::::::....::::.....:::::::::::
                         .:::::::::::::::::::::::::::::::::.
 
-                    © Copyright of Ignition Avionics Department
-"""
+                    © Copyright of Ignition Software Department
+*/
+# File:        test_production_sil.py
+# Author:      Vidisha Jain
+# Created On:  27/10/26
+#
+# Brief:
+#   Python ctypes runner for the CONSCIENTIA production SIL bridge.
+#
+# Note:
+#   Retained as SIL infrastructure. On the current development machine the
+#   MinGW host compiler is 32-bit while Python is 64-bit, so the standalone
+#   production_sil.exe runner is used instead.
+
 import csv
 import ctypes
 from pathlib import Path

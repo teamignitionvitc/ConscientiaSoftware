@@ -14,7 +14,7 @@
 #                        ::::::::::::....::::.....:::::::::::
 #                         .:::::::::::::::::::::::::::::::::.
 #
-#                     © Copyright of Ignition Avionics Department
+#                     © Copyright of Ignition Software Department
 #
 ####################################################################################################
 # File:        simulate_flight.py
