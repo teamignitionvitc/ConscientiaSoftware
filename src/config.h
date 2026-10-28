@@ -36,6 +36,7 @@
  * No#   |       when       who                  what
  ******+*********+**********+********************+**************************************************
  * 000  NEW      26/10/26   Vidisha Jain         Initial creation
+ * 001  MOD      28/10/26   Vidisha Jain         Verified physical I2C and MQ135 pin mapping
  **************************************************************************************************/
 
 #ifndef CONFIG_H_
@@ -59,11 +60,11 @@
 
 /**************************************************************************************************
  * I2C0 Configuration — Shared Sensor Bus
- *   Devices: MPU6050, BMP280, BH1750 #1, BH1750 #2
+ *   Devices: IMU, BMP280, BH1750 #1, BH1750 #2
  **************************************************************************************************/
 #define I2C0_INSTANCE                   i2c0
-#define PIN_I2C0_SDA                    (28U)
-#define PIN_I2C0_SCL                    (29U)
+#define PIN_I2C0_SDA                    (26U)
+#define PIN_I2C0_SCL                    (27U)
 #define I2C0_BAUDRATE_HZ               (400000U)
 
 /**************************************************************************************************
@@ -80,7 +81,10 @@
  * I2C Sensor Addresses (7-bit)
  **************************************************************************************************/
 
-/* MPU6050 — 6-axis IMU  (AD0 -> GND) */
+/* IMU — responds at 0x68; WHO_AM_I currently reads 0x70.
+ * Exact physical IMU model must be confirmed before flight qualification.
+ * MPU6050 macro name is retained temporarily for driver compatibility.
+ */
 #define MPU6050_I2C_ADDR                (0x68U)
 
 /* BMP280 — Barometric pressure + temperature  (SDO -> GND) */
@@ -146,8 +150,8 @@
  *   Analog output via external voltage divider (5 V -> 3.3 V).
  *   V_sensor = V_adc * (R1 + R2) / R2
  **************************************************************************************************/
-#define PIN_MQ135_ADC                   (26U)
-#define MQ135_ADC_CHANNEL               (0U)
+#define PIN_MQ135_ADC                   (29U)
+#define MQ135_ADC_CHANNEL               (3U)
 #define MQ135_DIVIDER_R1_OHMS          (33000U)
 #define MQ135_DIVIDER_R2_OHMS          (56000U)
 #define ADC_VREF_MV                    (3300U)

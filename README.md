@@ -11,7 +11,7 @@ The ground station uses an **ESP32 + LoRa E32 433T3D** receiver and displays liv
 ## Features
 
 - **Drone-Drop Recovery**
-  - MPU6050-based release detection
+  - IMU-based release detection
   - Immediate parachute deployment after confirmed drop
   - MG90 servo actuation
   - Latched deployment state
@@ -100,7 +100,7 @@ LoRa transmits CSV-formatted text packets. It does **not** transmit `.csv` files
 | Component | Quantity | Purpose |
 |---|---:|---|
 | Waveshare RP2040-Zero | 1 | Main flight computer |
-| MPU6050 | 1 | Accelerometer + gyroscope |
+| IMU | 1 | Accelerometer + gyroscope |
 | BMP280 | 1 | Pressure + temperature |
 | BH1750 | 3 | Multi-direction light sensing |
 | PMS5003 | 1 | Particulate-matter sensing |
@@ -158,12 +158,13 @@ LoRa transmits CSV-formatted text packets. It does **not** transmit `.csv` files
                     │                          │
                     │ GP16 ── Onboard LED      │
                     │                          │
-       MQ135 AO ───►│ GP26   ADC0              │
-                    │                          │
-       I2C0 SDA ────│ GP28 ─┬─ MPU6050         │
-       I2C0 SCL ────│ GP29  ├─ BMP280          │
+       I2C0 SDA ────│ GP26 ─┬─ IMU             │
+       I2C0 SCL ────│ GP27  ├─ BMP280          │
                     │       ├─ BH1750 #1       │
                     │       └─ BH1750 #2       │
+                    │                          │
+                    │ GP28                     │
+       MQ135 AO ───►│ GP29   ADC3              │
                     │                          │
                     └──────────────────────────┘
 ```
@@ -189,9 +190,10 @@ LoRa transmits CSV-formatted text packets. It does **not** transmit `.csv` files
 | GP14 | I2C1 SDA | BH1750 #3 SDA |
 | GP15 | I2C1 SCL | BH1750 #3 SCL |
 | GP16 | GPIO | Onboard status LED |
-| GP26 | ADC0 | MQ135 analog output |
-| GP28 | I2C0 SDA | MPU6050 + BMP280 + BH1750 #1/#2 |
-| GP29 | I2C0 SCL | MPU6050 + BMP280 + BH1750 #1/#2 |
+| GP26 | I2C0 SDA | IMU + BMP280 + BH1750 #1/#2 |
+| GP27 | I2C0 SCL | IMU + BMP280 + BH1750 #1/#2 |
+| GP28 | Unassigned | Currently unused |
+| GP29 | ADC3 | MQ135 analog output |
 
 Pin definitions are centralized in:
 
@@ -208,12 +210,12 @@ Change hardware assignments there instead of hardcoding GPIO numbers inside indi
 ## I2C0
 
 ```text
-RP2040 GP28 SDA ─────┬──── MPU6050
+RP2040 GP26 SDA ─────┬──── IMU
                      ├──── BMP280
                      ├──── BH1750 #1
                      └──── BH1750 #2
 
-RP2040 GP29 SCL ─────┴──── Shared Clock
+RP2040 GP27 SCL ─────┴──── Shared Clock
 ```
 
 Configured bus speed:
@@ -224,7 +226,7 @@ Configured bus speed:
 
 | Device | Address |
 |---|---|
-| MPU6050 | `0x68` |
+| IMU | `0x68` |
 | BMP280 | `0x76` |
 | BH1750 #1 | `0x23` |
 | BH1750 #2 | `0x5C` |
@@ -302,7 +304,7 @@ The flight software is divided into three main layers:
 ├───────────────────────────────────────────────────────┤
 │                HARDWARE DRIVERS                       │
 │                                                       │
-│ MPU6050 │ BMP280 │ BH1750 │ PMS5003 │ MQ135          │
+│ IMU     │ BMP280 │ BH1750 │ PMS5003 │ MQ135          │
 │ L89HA   │ LoRa   │ SD      │ Servo                   │
 ├───────────────────────────────────────────────────────┤
 │                   RP2040                              │
@@ -327,7 +329,7 @@ Configured application sampling rates:
 
 | Sensor | Sampling Rate |
 |---|---:|
-| MPU6050 | 50 Hz |
+| IMU | 50 Hz |
 | BMP280 | 10 Hz |
 | BH1750 | 4 Hz |
 | PMS5003 | 1 Hz |
@@ -888,9 +890,10 @@ Before flight, verify each subsystem independently.
 - Check regulator/current capacity.
 - Do not power the complete system until individual module requirements are confirmed.
 
-## MPU6050
+## IMU
 
-- Verify I2C communication.
+- Verify I2C communication at address `0x68`.
+- Current physical device reports `WHO_AM_I = 0x70`; confirm the exact IMU model before flight qualification.
 - Confirm sensor orientation.
 - Confirm approximately 1 g magnitude while stationary.
 - Confirm acceleration changes during controlled movement.

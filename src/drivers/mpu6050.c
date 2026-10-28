@@ -278,15 +278,14 @@ Mpu6050Result MPU6050_ReadRawGyro(Mpu6050RawAxes *raw)
     raw->z = AssembleI16(buf[4], buf[5]);
 
     return MPU6050_OK;
-}
+} 
 
 Mpu6050Result MPU6050_ReadAccel(Mpu6050AccelData *accel)
 {
     Mpu6050RawAxes raw;
     Mpu6050Result res;
 
-    if (accel == NULL)
-    {
+    if (accel == NULL)`    {
         return MPU6050_ERR_NOT_INIT;
     }
 
