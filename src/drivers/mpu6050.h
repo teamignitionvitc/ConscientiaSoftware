@@ -51,8 +51,8 @@
  * Macro Definitions
  **************************************************************************************************/
 
-/** \brief  Expected WHO_AM_I value read from register 0x75. */
-#define MPU6050_WHO_AM_I_VAL            (0x68U)
+/** \brief  Expected WHO_AM_I value read from register 0x75 (physical unit identifies as MPU-6500-compatible). */
+#define MPU6050_WHO_AM_I_VAL            (0x70U)
 
 /**************************************************************************************************
  * Type Definitions
@@ -65,7 +65,7 @@ typedef enum
 {
 	MPU6050_OK = 0,             /**< Operation succeeded.                   */
 	MPU6050_ERR_I2C,            /**< I2C read/write failure.                */
-	MPU6050_ERR_WHO_AM_I,       /**< Unexpected WHO_AM_I (not 0x68).        */
+	MPU6050_ERR_WHO_AM_I,       /**< Unexpected WHO_AM_I (not 0x70).        */
 	MPU6050_ERR_NOT_INIT        /**< Driver used before successful init.    */
 } Mpu6050Result;
 
@@ -128,7 +128,7 @@ typedef struct
  *
  * \return  MPU6050_OK            on success.
  * \return  MPU6050_ERR_I2C       if I2C communication fails.
- * \return  MPU6050_ERR_WHO_AM_I  if the identity register does not read 0x68.
+ * \return  MPU6050_ERR_WHO_AM_I  if the identity register does not read 0x70.
  */
 Mpu6050Result MPU6050_Init(void);
 

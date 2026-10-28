@@ -31,7 +31,7 @@
  *   LoRa E32-433T3D driver in transparent UART mode.
  *
  *   Packet structure (provisional — TODO: agree with GS team):
- *     $$IGNI,<seq>,<ts_ms>,<baro_temp_cdegc>,<baro_pres_pa>,<baro_alt_m>,
+ *     $$IGNI,<seq>,<ts_ms>,<imu_temp_c>,<baro_pres_pa>,<baro_alt_m>,
  *            <ax_g>,<ay_g>,<az_g>,<gx_dps>,<gy_dps>,<gz_dps>,
  *            <light1_lux>,<light2_lux>,<light3_lux>,
  *            <pm25_atm>,<pm10_atm>,<mq135_raw>,
@@ -183,7 +183,7 @@ TmResult Telemetry_FormatPacket(const SmData *data,
     (unsigned long)data->imu_timestamp_ms,
 
     /* 2-4: barometer */
-    ((float)data->baro.temperature_cdegc / 100.0f),
+    data->imu.temperature_c,
     (unsigned long)data->baro.pressure_pa,
     data->baro_altitude_m,
 

@@ -24,7 +24,7 @@
  * Created On:  26/10/26
  *
  * Brief:
- *   Source file for the BMP280 barometric pressure / temperature driver.
+ *   Source file for the BMP280 barometric pressure driver.
  *
  * Description:
  *   Implements I2C communication, calibration readout, and Bosch-datasheet
@@ -43,8 +43,7 @@
  *       spi3w_en = 0      (bit  [0]   = 0)   — SPI 4-wire (unused; we use I2C)
  *
  *   Forced mode is chosen so the driver controls exactly when a measurement
- *   occurs.  Each call to BMP280_Read / BMP280_ReadTemperature /
- *   BMP280_ReadPressure triggers one conversion and waits for it to complete.
+ *   occurs.  Each call to BMP280_Read / BMP280_ReadPressure triggers one conversion and waits for it to complete.
  ***************************************************************************************************
  * HISTORY:
  *
@@ -211,37 +210,6 @@ bool BMP280_IsInitialised(void)
     return sInitOk;
 }
 
-Bmp280Result BMP280_ReadTemperature(int32_t *temperature_cdegc)
-{
-    int32_t raw_temp  = 0;
-    int32_t raw_press = 0;
-    Bmp280Result res;
-
-    if (!sInitOk)
-    {
-        return BMP280_ERR_NOT_INIT;
-    }
-    if (temperature_cdegc == NULL)
-    {
-        return BMP280_ERR_NOT_INIT;
-    }
-
-    res = TriggerMeasurement();
-    if (res != BMP280_OK)
-    {
-        return res;
-    }
-
-    res = ReadRawBurst(&raw_temp, &raw_press);
-    if (res != BMP280_OK)
-    {
-        return res;
-    }
-
-    *temperature_cdegc = CompensateTemperature(raw_temp);
-    return BMP280_OK;
-}
-
 Bmp280Result BMP280_ReadPressure(uint32_t *pressure_pa)
 {
     int32_t raw_temp  = 0;
@@ -302,8 +270,11 @@ Bmp280Result BMP280_Read(Bmp280Data *data)
         return res;
     }
 
-    data->temperature_cdegc = CompensateTemperature(raw_temp);
-    data->pressure_pa       = CompensatePressure(raw_press);
+    /* BMP280 temperature is used only to calculate t_fine for pressure.
+     * Mission temperature comes from the IMU.
+     */
+    (void)CompensateTemperature(raw_temp);
+    data->pressure_pa = CompensatePressure(raw_press);
     return BMP280_OK;
 }
 

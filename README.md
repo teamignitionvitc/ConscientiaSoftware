@@ -101,7 +101,7 @@ LoRa transmits CSV-formatted text packets. It does **not** transmit `.csv` files
 |---|---:|---|
 | Waveshare RP2040-Zero | 1 | Main flight computer |
 | IMU | 1 | Accelerometer + gyroscope |
-| BMP280 | 1 | Pressure + temperature |
+| BMP280 | 1 | Barometric pressure |
 | BH1750 | 3 | Multi-direction light sensing |
 | PMS5003 | 1 | Particulate-matter sensing |
 | MQ135 | 1 | Air-quality sensing |
@@ -138,8 +138,8 @@ LoRa transmits CSV-formatted text packets. It does **not** transmit `.csv` files
      LoRa E32 M0 ◄──│ GP2                      │
      LoRa E32 M1 ◄──│ GP3                      │
                     │                          │
-       L89HA RX ◄───│ GP4   UART1 TX           │
-       L89HA TX ───►│ GP5   UART1 RX           │
+       PMS5003 TX ──►│ GP4   PIO UART RX           │
+       PMS5003 RX ◄──│ GP5   PIO UART TX           │
                     │                          │
      LoRa E32 AUX ─►│ GP6                      │
                     │                          │
@@ -161,7 +161,8 @@ LoRa transmits CSV-formatted text packets. It does **not** transmit `.csv` files
        I2C0 SDA ────│ GP26 ─┬─ IMU             │
        I2C0 SCL ────│ GP27  ├─ BMP280          │
                     │       ├─ BH1750 #1       │
-                    │       └─ BH1750 #2       │
+                    │       ├─ BH1750 #2       │
+                    │       └─ L89HA GNSS      │
                     │                          │
                     │ GP28                     │
        MQ135 AO ───►│ GP29   ADC3              │
@@ -177,12 +178,10 @@ LoRa transmits CSV-formatted text packets. It does **not** transmit `.csv` files
 | GP1 | UART0 RX | LoRa E32 TX |
 | GP2 | GPIO | LoRa M0 |
 | GP3 | GPIO | LoRa M1 |
-| GP4 | UART1 TX | L89HA RX |
-| GP5 | UART1 RX | L89HA TX |
+| GP4 | PIO UART RX | PMS5003 TX |
+| GP5 | PIO UART TX | PMS5003 RX |
 | GP6 | GPIO | LoRa AUX |
 | GP7 | PWM | MG90 signal |
-| GP8 | PIO UART RX | PMS5003 TX |
-| GP9 | PIO UART TX | PMS5003 RX |
 | GP10 | SPI1 SCK | MicroSD SCK |
 | GP11 | SPI1 TX | MicroSD MOSI |
 | GP12 | SPI1 RX | MicroSD MISO |
@@ -228,6 +227,7 @@ Configured bus speed:
 |---|---|
 | IMU | `0x68` |
 | BMP280 | `0x76` |
+| L89HA GNSS command endpoint | `0x50` |
 | BH1750 #1 | `0x23` |
 | BH1750 #2 | `0x5C` |
 
@@ -662,7 +662,7 @@ Channels:   28
 
 The dashboard can display:
 
-- temperature
+- temperature (IMU die temperature)
 - pressure
 - altitude
 - acceleration

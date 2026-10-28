@@ -239,7 +239,7 @@ SmResult SensorManager_Update(void)
      */
     (void)PMS5003_Poll();
 
-    /* L89HA NMEA drain — also call every tick to keep UART buffer clear */
+    /* L89HA NMEA drain over shared I2C0 bus */
     (void)L89HA_Poll();
 
     PollBaro (now_ms);
@@ -485,7 +485,7 @@ static void PollAq(uint32_t now_ms)
 
 static void PollGnss(uint32_t now_ms)
 {
-    /* L89HA_Poll() already called unconditionally above — just snapshot fix */
+    /* L89HA_Poll() already called above — just snapshot the latest fix */
     if ((now_ms - sLastGnssMs) < SAMPLE_INTERVAL_GNSS_MS)
     {
         return;

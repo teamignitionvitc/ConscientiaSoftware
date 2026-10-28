@@ -23,7 +23,7 @@
  * Author:      Vidisha Jain
  * Created On:  26/10/26
  *
- * \brief       Header file for BMP280 barometric pressure / temperature driver.
+ * \brief       Header file for BMP280 barometric pressure driver.
  * \details     Provides the public API for initializing, configuring, and reading
  *              the Bosch BMP280 sensor over I2C on the Waveshare RP2040-Zero.
  *              This is a hardware driver only — no flight logic or telemetry.
@@ -79,8 +79,7 @@ typedef enum
  */
 typedef struct
 {
-	int32_t		temperature_cdegc;  /**< Temperature in 0.01 °C  (5123 = 51.23 °C). */
-	uint32_t	pressure_pa;        /**< Pressure in Pa          (96386 = 963.86 hPa). */
+	uint32_t	pressure_pa;        /**< Pressure in Pa (96386 = 963.86 hPa). */
 } Bmp280Data;
 
 /**************************************************************************************************
@@ -109,17 +108,6 @@ Bmp280Result BMP280_Init(void);
 bool BMP280_IsInitialised(void);
 
 /**
- * \brief   Reads compensated temperature from the BMP280.
- *
- * \param[out] temperature_cdegc   Pointer to receive temperature in 0.01 °C.
- *
- * \return  BMP280_OK            on success.
- * \return  BMP280_ERR_NOT_INIT  if the driver is not initialised.
- * \return  BMP280_ERR_I2C       if I2C communication fails.
- */
-Bmp280Result BMP280_ReadTemperature(int32_t *temperature_cdegc);
-
-/**
  * \brief   Reads compensated pressure from the BMP280.
  * \details Temperature compensation is performed internally first because
  *          the pressure formula depends on the t_fine intermediate value.
@@ -133,11 +121,10 @@ Bmp280Result BMP280_ReadTemperature(int32_t *temperature_cdegc);
 Bmp280Result BMP280_ReadPressure(uint32_t *pressure_pa);
 
 /**
- * \brief   Reads compensated temperature and pressure in a single burst.
- * \details Both raw values are read from consecutive registers in one I2C
- *          transaction to ensure temporal consistency.
+ * \brief   Reads compensated pressure. Raw temperature is consumed internally for pressure compensation.
+ * \details Pressure and the internal compensation temperature are read in one I2C transaction.
  *
- * \param[out] data   Pointer to Bmp280Data struct to receive both readings.
+ * \param[out] data   Pointer to Bmp280Data struct to receive pressure.
  *
  * \return  BMP280_OK            on success.
  * \return  BMP280_ERR_NOT_INIT  if the driver is not initialised.

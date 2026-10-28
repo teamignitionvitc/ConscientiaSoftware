@@ -285,7 +285,7 @@ Mpu6050Result MPU6050_ReadAccel(Mpu6050AccelData *accel)
     Mpu6050RawAxes raw;
     Mpu6050Result res;
 
-    if (accel == NULL)`    {
+    if (accel == NULL)   {
         return MPU6050_ERR_NOT_INIT;
     }
 
@@ -349,7 +349,7 @@ Mpu6050Result MPU6050_ReadTemperature(float *temperature_c)
     raw = AssembleI16(buf[0], buf[1]);
 
     /* Datasheet formula: Temperature (°C) = raw / 340.0 + 36.53 */
-    *temperature_c = ((float)raw / 340.0f) + 36.53f;
+    *temperature_c = ((float)raw / 333.87f) + 21.0f;
 
     return MPU6050_OK;
 }
@@ -384,7 +384,7 @@ Mpu6050Result MPU6050_Read(Mpu6050Data *data)
 
     /* Temperature: bytes 6..7 */
     raw = AssembleI16(buf[6], buf[7]);
-    data->temperature_c = ((float)raw / 340.0f) + 36.53f;
+    data->temperature_c = ((float)raw / 333.87f) + 21.0f;
 
     /* Gyroscope: bytes 8..13 */
     data->gyro_x_dps = (float)AssembleI16(buf[8],  buf[9])  / GYRO_SENSITIVITY;

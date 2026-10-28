@@ -27,8 +27,9 @@
  *   Source file for the L89HA GNSS module driver.
  *
  * Description:
- *   Non-blocking NMEA sentence reception and parsing over Pico SDK hardware
- *   UART1 (GPIO4 TX, GPIO5 RX, 9600 baud) using uart_is_readable().
+ *   NMEA sentence reception and parsing over the shared Pico SDK I2C0 bus.
+ *   The physical module responds at command address 0x50. For the R2.0-style
+ *   transport, commands are written to 0x50 and response data is read at 0x54.
  *
  *   Sentences parsed:
  *     $GNRMC — time, fix validity, lat, lon, ground speed, course
@@ -56,8 +57,8 @@
 #include "l89ha.h"
 #include "config.h"
 
-#include "hardware/uart.h"
-#include "hardware/gpio.h"
+#include "hardware/i2c.h"
+#include "pico/stdlib.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -66,7 +67,13 @@
 /**************************************************************************************************
  * Internal Constants
  **************************************************************************************************/
-#define SENTENCE_BUF_LEN    (L89HA_NMEA_MAX_LEN + 1U)
+#define SENTENCE_BUF_LEN       (L89HA_NMEA_MAX_LEN + 1U)
+#define GNSS_I2C_CMD_LEN       (8U)
+#define GNSS_I2C_CHUNK_MAX     (256U)
+#define GNSS_I2C_DELAY_MS      (10U)
+#define GNSS_TX_LEN_OFFSET     (0x0008U)
+#define GNSS_TX_BUF_OFFSET     (0x2000U)
+#define GNSS_CR_CMD            (0xAA51U)
 
 /* Knots to m/s conversion */
 #define KNOTS_TO_MPS        (0.514444f)
@@ -92,6 +99,9 @@ static void     ParseGGA(const char *sentence);
 static double   ParseLatLon(const char *field, const char *hemi, bool is_lon);
 static uint8_t  FieldCopy(const char *sentence, uint8_t field_num,
                            char *out, uint8_t out_len);
+static bool     ReadI2cNmea(uint8_t *buf, uint16_t max_len, uint16_t *read_len);
+static void     FeedNmeaByte(char c, L89haResult *last_result);
+static void     BuildReadCommand(uint16_t offset, uint32_t length, uint8_t cmd[GNSS_I2C_CMD_LEN]);
 
 /**************************************************************************************************
  * Function Definitions
@@ -105,10 +115,7 @@ L89haResult L89HA_Init(void)
     sInSentence = false;
     memset(&sLatestFix, 0, sizeof(sLatestFix));
 
-    uart_init(UART1_INSTANCE, UART1_BAUDRATE);
-    gpio_set_function(PIN_UART1_TX, GPIO_FUNC_UART);
-    gpio_set_function(PIN_UART1_RX, GPIO_FUNC_UART);
-
+    /* I2C0 and its pins are initialised centrally by SensorManager_Init(). */
     sInitOk = true;
     return L89HA_OK;
 }
@@ -120,7 +127,8 @@ bool L89HA_IsInitialised(void)
 
 L89haResult L89HA_Poll(void)
 {
-    bool sentence_done = false;
+    uint8_t raw[GNSS_I2C_CHUNK_MAX];
+    uint16_t received = 0U;
     L89haResult last_result = L89HA_ERR_NO_DATA;
 
     if (!sInitOk)
@@ -128,69 +136,16 @@ L89haResult L89HA_Poll(void)
         return L89HA_ERR_NOT_INIT;
     }
 
-    while (uart_is_readable(UART1_INSTANCE))
+    if (!ReadI2cNmea(raw, sizeof(raw), &received))
     {
-        char c = (char)uart_getc(UART1_INSTANCE);
-
-        if (c == '$')
-        {
-            /* Start of new sentence — reset buffer */
-            sBuf[0]     = '$';
-            sBufIdx     = 1;
-            sInSentence = true;
-            continue;
-        }
-
-        if (!sInSentence)
-        {
-            continue;
-        }
-
-        if (c == '\n' || c == '\r')
-        {
-            /* Sentence complete */
-            sBuf[sBufIdx] = '\0';
-            sInSentence   = false;
-            sentence_done = true;
-
-            if (!ValidateChecksum(sBuf))
-            {
-                last_result = L89HA_ERR_CHECKSUM;
-                sBufIdx = 0;
-                continue;
-            }
-
-            /* Dispatch by sentence type */
-            if (strncmp(sBuf, "$GNRMC", 6) == 0 ||
-                strncmp(sBuf, "$GPRMC", 6) == 0)
-            {
-                ParseRMC(sBuf);
-                last_result = L89HA_OK;
-            }
-            else if (strncmp(sBuf, "$GNGGA", 6) == 0 ||
-                     strncmp(sBuf, "$GPGGA", 6) == 0)
-            {
-                ParseGGA(sBuf);
-                last_result = L89HA_OK;
-            }
-
-            sBufIdx = 0;
-            continue;
-        }
-
-        /* Guard against buffer overflow — discard oversized sentence */
-        if (sBufIdx >= (SENTENCE_BUF_LEN - 1U))
-        {
-            sInSentence = false;
-            sBufIdx     = 0;
-            last_result = L89HA_ERR_PARSE;
-            continue;
-        }
-
-        sBuf[sBufIdx++] = c;
+        return L89HA_ERR_I2C;
     }
 
-    (void)sentence_done;
+    for (uint16_t i = 0U; i < received; ++i)
+    {
+        FeedNmeaByte((char)raw[i], &last_result);
+    }
+
     return last_result;
 }
 
@@ -216,6 +171,128 @@ L89haResult L89HA_GetFix(L89haFix *fix)
 bool L89HA_HasFix(void)
 {
     return sHasFix;
+}
+
+
+static void BuildReadCommand(uint16_t offset, uint32_t length, uint8_t cmd[GNSS_I2C_CMD_LEN])
+{
+    uint32_t word0 = ((uint32_t)GNSS_CR_CMD << 16) | (uint32_t)offset;
+    cmd[0] = (uint8_t)(word0 & 0xFFU);
+    cmd[1] = (uint8_t)((word0 >> 8) & 0xFFU);
+    cmd[2] = (uint8_t)((word0 >> 16) & 0xFFU);
+    cmd[3] = (uint8_t)((word0 >> 24) & 0xFFU);
+    cmd[4] = (uint8_t)(length & 0xFFU);
+    cmd[5] = (uint8_t)((length >> 8) & 0xFFU);
+    cmd[6] = (uint8_t)((length >> 16) & 0xFFU);
+    cmd[7] = (uint8_t)((length >> 24) & 0xFFU);
+}
+
+static bool ReadI2cNmea(uint8_t *buf, uint16_t max_len, uint16_t *read_len)
+{
+    uint8_t cmd[GNSS_I2C_CMD_LEN];
+    uint8_t len_bytes[4];
+    uint32_t available;
+    uint16_t request_len;
+
+    if (buf == NULL || read_len == NULL || max_len == 0U)
+    {
+        return false;
+    }
+    *read_len = 0U;
+
+    /* Quectel multi-slave guidance: address the command endpoint first. */
+    if (i2c_write_timeout_us(I2C0_INSTANCE, L89HA_I2C_ADDR, NULL, 0, false, 10000) < 0)
+    {
+        return false;
+    }
+
+    BuildReadCommand(GNSS_TX_LEN_OFFSET, 4U, cmd);
+    if (i2c_write_timeout_us(I2C0_INSTANCE, L89HA_I2C_ADDR, cmd, sizeof(cmd), false, 10000) != (int)sizeof(cmd))
+    {
+        return false;
+    }
+    sleep_ms(GNSS_I2C_DELAY_MS);
+
+    if (i2c_read_timeout_us(I2C0_INSTANCE, L89HA_I2C_READ_ADDR, len_bytes, sizeof(len_bytes), false, 10000) != (int)sizeof(len_bytes))
+    {
+        return false;
+    }
+
+    available = (uint32_t)len_bytes[0]
+              | ((uint32_t)len_bytes[1] << 8)
+              | ((uint32_t)len_bytes[2] << 16)
+              | ((uint32_t)len_bytes[3] << 24);
+
+    if (available == 0U)
+    {
+        return true;
+    }
+
+    request_len = (available > (uint32_t)max_len) ? max_len : (uint16_t)available;
+    BuildReadCommand(GNSS_TX_BUF_OFFSET, request_len, cmd);
+    if (i2c_write_timeout_us(I2C0_INSTANCE, L89HA_I2C_ADDR, cmd, sizeof(cmd), false, 10000) != (int)sizeof(cmd))
+    {
+        return false;
+    }
+    sleep_ms(GNSS_I2C_DELAY_MS);
+
+    if (i2c_read_timeout_us(I2C0_INSTANCE, L89HA_I2C_READ_ADDR, buf, request_len, false, 20000) != (int)request_len)
+    {
+        return false;
+    }
+
+    *read_len = request_len;
+    return true;
+}
+
+static void FeedNmeaByte(char c, L89haResult *last_result)
+{
+    if (c == '$')
+    {
+        sBuf[0] = '$';
+        sBufIdx = 1U;
+        sInSentence = true;
+        return;
+    }
+
+    if (!sInSentence)
+    {
+        return;
+    }
+
+    if (c == '\n' || c == '\r')
+    {
+        sBuf[sBufIdx] = '\0';
+        sInSentence = false;
+
+        if (!ValidateChecksum(sBuf))
+        {
+            *last_result = L89HA_ERR_CHECKSUM;
+        }
+        else if (strncmp(sBuf, "$GNRMC", 6) == 0 || strncmp(sBuf, "$GPRMC", 6) == 0)
+        {
+            ParseRMC(sBuf);
+            *last_result = L89HA_OK;
+        }
+        else if (strncmp(sBuf, "$GNGGA", 6) == 0 || strncmp(sBuf, "$GPGGA", 6) == 0)
+        {
+            ParseGGA(sBuf);
+            *last_result = L89HA_OK;
+        }
+
+        sBufIdx = 0U;
+        return;
+    }
+
+    if (sBufIdx >= (SENTENCE_BUF_LEN - 1U))
+    {
+        sInSentence = false;
+        sBufIdx = 0U;
+        *last_result = L89HA_ERR_PARSE;
+        return;
+    }
+
+    sBuf[sBufIdx++] = c;
 }
 
 /**************************************************************************************************

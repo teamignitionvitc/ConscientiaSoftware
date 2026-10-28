@@ -297,16 +297,15 @@ int main(void)
          * ════════════════════════════════════════════════════════════ */
         if (gLoggerOk)
         {
-            /* Baro group: altitude_time, pressure_alt, temp_alt */
+            /* Baro group: altitude_time, pressure_alt */
             if (sm.baro_valid &&
                 RateLimitCheck(now, &gLastBaroLogMs, SAMPLE_INTERVAL_BARO_MS))
             {
                 DataLogger_LogAltTime(now, alt_agl);
                 DataLogger_LogPressure(alt_agl, sm.baro.pressure_pa);
-                DataLogger_LogTemp(alt_agl, sm.baro.temperature_cdegc);
             }
 
-            /* IMU group: accel_alt, gyro_alt */
+            /* IMU group: accel_alt, gyro_alt, temp_alt */
             if (sm.imu_valid &&
                 RateLimitCheck(now, &gLastImuLogMs, SAMPLE_INTERVAL_IMU_MS))
             {
@@ -316,6 +315,7 @@ int main(void)
                 DataLogger_LogGyroX(alt_agl, sm.imu.gyro_x_dps);
                 DataLogger_LogGyroY(alt_agl, sm.imu.gyro_y_dps);
                 DataLogger_LogGyroZ(alt_agl, sm.imu.gyro_z_dps);
+                DataLogger_LogTemp(alt_agl, (int32_t)(sm.imu.temperature_c * 100.0f));
             }
 
             /* PM vs altitude */

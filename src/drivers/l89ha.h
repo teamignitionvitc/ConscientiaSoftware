@@ -24,8 +24,8 @@
  * Created On:  26/10/26
  *
  * \brief       Header file for L89HA GNSS module driver.
- * \details     Provides non-blocking NMEA sentence reception and parsing over
- *              UART1 for the Quectel L89HA on the Waveshare RP2040-Zero.
+ * \details     Provides NMEA sentence reception and parsing over the shared I2C0 bus
+ *              for the Quectel L89HA on the Waveshare RP2040-Zero.
  *              Hardware driver only — no flight/payload/telemetry logic.
  ***************************************************************************************************
  * HISTORY:
@@ -67,7 +67,8 @@ typedef enum
 	L89HA_ERR_NO_FIX,           /**< No valid GNSS fix available.            */
 	L89HA_ERR_NO_DATA,          /**< No complete sentence received yet.      */
 	L89HA_ERR_CHECKSUM,         /**< Sentence failed NMEA checksum.          */
-	L89HA_ERR_PARSE             /**< Sentence could not be parsed.           */
+	L89HA_ERR_PARSE,            /**< Sentence could not be parsed.           */
+	L89HA_ERR_I2C               /**< I2C transaction failed.                  */
 } L89haResult;
 
 /**
@@ -100,10 +101,10 @@ typedef struct
  **************************************************************************************************/
 
 /**
- * \brief   Initialises the L89HA driver and UART1.
- * \details Configures UART1 at 9600 baud, sets GPIO4/5 for UART function.
+ * \brief   Initialises the L89HA I2C transport state. I2C0 is owned by Sensor Manager.
+ * \details Resets the I2C/NMEA parser state; I2C0 is initialised by Sensor Manager.
  *
- * \return  L89HA_OK always (UART init cannot fail at this level).
+ * \return  L89HA_OK on success.
  */
 L89haResult L89HA_Init(void);
 

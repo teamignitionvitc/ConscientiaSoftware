@@ -60,7 +60,7 @@
 
 /**************************************************************************************************
  * I2C0 Configuration — Shared Sensor Bus
- *   Devices: IMU, BMP280, BH1750 #1, BH1750 #2
+ *   Devices: IMU, BMP280, BH1750 #1, BH1750 #2, L89HA GNSS
  **************************************************************************************************/
 #define I2C0_INSTANCE                   i2c0
 #define PIN_I2C0_SDA                    (26U)
@@ -87,7 +87,7 @@
  */
 #define MPU6050_I2C_ADDR                (0x68U)
 
-/* BMP280 — Barometric pressure + temperature  (SDO -> GND) */
+/* BMP280 — Barometric pressure sensor (temperature used internally only for compensation) */
 #define BMP280_I2C_ADDR                 (0x76U)
 
 /* BH1750 — Ambient light sensors
@@ -98,8 +98,11 @@
 #define BH1750_ADDR_LOW                 (0x23U)
 #define BH1750_ADDR_HIGH                (0x5CU)
 
-/* L89HA GNSS — I2C slave address (documented; UART is the primary interface) */
-#define L89HA_I2C_ADDR                  (0x3AU)
+/* L89HA GNSS — physically verified I2C command address on the shared I2C0 bus.
+ * The R2.0-style I2C protocol uses 0x50 for commands and 0x54 for reads.
+ */
+#define L89HA_I2C_ADDR                  (0x50U)
+#define L89HA_I2C_READ_ADDR             (0x54U)
 
 /**************************************************************************************************
  * SPI1 Configuration — Micro SD Card
@@ -126,22 +129,14 @@
 #define PIN_LORA_AUX                    (6U)
 
 /**************************************************************************************************
- * UART1 Configuration — L89HA GNSS Module
- **************************************************************************************************/
-#define UART1_INSTANCE                  uart1
-#define PIN_UART1_TX                    (4U)
-#define PIN_UART1_RX                    (5U)
-#define UART1_BAUDRATE                  (9600U)
-
-/**************************************************************************************************
  * PIO UART Configuration — PMS5003 Particulate Sensor
  *   Uses PIO0 state machines for software UART (uart_tx.pio / uart_rx.pio)
  **************************************************************************************************/
 #define PIO_PMS_INSTANCE                pio0
 #define PIO_PMS_SM_TX                   (0U)
 #define PIO_PMS_SM_RX                   (1U)
-#define PIN_PMS_TX                      (8U)
-#define PIN_PMS_RX                      (9U)
+#define PIN_PMS_TX                      (5U)
+#define PIN_PMS_RX                      (4U)
 #define PMS5003_BAUDRATE                (9600U)
 #define PMS5003_FRAME_LEN               (32U)
 

@@ -90,6 +90,8 @@ static float       sAltSmoothed    = 0.0f;
 /* Previous filtered altitude + timestamp for vertical-rate estimation */
 static float       sAltPrev        = 0.0f;
 static uint32_t    sBaroPrevMs     = 0;
+static uint32_t    sLastBaroSampleMs = 0;
+static uint32_t    sLastImuSampleMs  = 0;
 
 /* Confirmation counters (count consecutive qualifying samples) */
 static uint8_t     sAscentCount    = 0;
@@ -123,7 +125,9 @@ FsResult FlightState_Init(void)
 
     sAltSmoothed   = 0.0f;
     sAltPrev       = 0.0f;
-    sBaroPrevMs    = 0;
+    sBaroPrevMs      = 0;
+    sLastBaroSampleMs = 0;
+    sLastImuSampleMs  = 0;
 
     sAscentCount   = 0;
     sDescentCount  = 0;
@@ -187,10 +191,11 @@ FsResult FlightState_GetMetrics(FsMetrics *metrics)
  */
 static void ProcessAltitude(const SmData *data, uint32_t now_ms)
 {
-    if (!data->baro_valid)
+    if (!data->baro_valid || data->baro_timestamp_ms == sLastBaroSampleMs)
     {
-        return;     /* No new baro data — keep previous estimates */
+        return;     /* Invalid or already-consumed sample */
     }
+    sLastBaroSampleMs = data->baro_timestamp_ms;
 
     float raw_alt = data->baro_altitude_m;
 
@@ -206,7 +211,7 @@ static void ProcessAltitude(const SmData *data, uint32_t now_ms)
         sMetrics.launch_alt_m = raw_alt;
         sAltSmoothed          = raw_alt;
         sAltPrev              = raw_alt;
-        sBaroPrevMs           = now_ms;
+        sBaroPrevMs           = data->baro_timestamp_ms;
         sRefLatched           = true;
         sStateEntryMs         = now_ms;
         return;
@@ -220,7 +225,7 @@ static void ProcessAltitude(const SmData *data, uint32_t now_ms)
     sMetrics.alt_agl_m = sAltSmoothed - sMetrics.launch_alt_m;
 
     /* --- Vertical rate (m/s, positive = upward) --- */
-    uint32_t dt_ms = now_ms - sBaroPrevMs;
+    uint32_t dt_ms = data->baro_timestamp_ms - sBaroPrevMs;
     if (dt_ms > 0)
     {
         float dt_s = (float)dt_ms / 1000.0f;
@@ -228,7 +233,7 @@ static void ProcessAltitude(const SmData *data, uint32_t now_ms)
     }
 
     sAltPrev    = sAltSmoothed;
-    sBaroPrevMs = now_ms;
+    sBaroPrevMs = data->baro_timestamp_ms;
 
     /* --- Track apogee --- */
     if (sMetrics.alt_agl_m > sMetrics.apogee_m)
@@ -242,10 +247,11 @@ static void ProcessAltitude(const SmData *data, uint32_t now_ms)
  */
 static void ProcessImu(const SmData *data)
 {
-    if (!data->imu_valid)
+    if (!data->imu_valid || data->imu_timestamp_ms == sLastImuSampleMs)
     {
         return;
     }
+    sLastImuSampleMs = data->imu_timestamp_ms;
 
     sMetrics.accel_mag_g = AccelMag(&data->imu);
 }
